@@ -1,0 +1,27 @@
+machine:
+  pre:
+    - cat ~/circleci-docker-cache/bash_aliases.sh >> ~/.bash_login
+    - echo 'Asia/Tokyo' | sudo tee /etc/timezone
+    - sudo dpkg-reconfigure -f noninteractive tzdata
+    # - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
+    # - sudo chmod 0755 /usr/bin/docker
+  services:
+    - docker
+checkout:
+  post:
+    # http://tschottdorf.github.io/cockroach-docker-circleci-continuous-integration/
+    - find . -exec touch -t 201401010000 {} \;
+    - for x in $(git ls-tree --full-tree --name-only -r HEAD); do touch -t $(date -d "$(git log -1 --format=%ci "${x}")" +%y%m%d%H%M.%S) "${x}"; done
+dependencies:
+  cache_directories:
+    - ~/docker
+  override:
+    # https://circleci.com/docs/docker#caching-docker-layers
+    - if [[ -e ~/docker/image.tar ]]; then docker load -i ~/docker/image.tar; fi
+    - docker build -t circleci-docker-cache .
+    - mkdir -p ~/docker; docker save circleci-docker-cache > ~/docker/image.tar
+database:
+  override:
+test:
+  override:
+    - echo ok
